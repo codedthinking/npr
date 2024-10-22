@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "npr"
+version = "0.1.0"
+description = ""
+authors = ["Miklós Koren <miklos.koren@gmail.com>"]
+readme = "README.md"
+packages = [{include = "npr", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+click = "^8.1.7"
+rich = "^13.7.0"
+
+[tool.poetry.scripts]
+npr = "npr.cli:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
