@@ -5,6 +5,7 @@ description = ""
 authors = ["Miklós Koren <miklos.koren@gmail.com>"]
 readme = "README.md"
 packages = [{include = "npr", from = "src"}]
+include = ["templates/**/*"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
