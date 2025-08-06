@@ -21,19 +21,17 @@ def get_template_dir() -> Path:
         import pkg_resources
         return Path(pkg_resources.resource_filename('npr', 'templates'))
 
-def create_jinja_env() -> Environment:
+def create_jinja_env(template_dir: Path) -> Environment:
     """Create a Jinja environment with the correct template loader."""
-    template_dir = get_template_dir()
     return Environment(
         loader=FileSystemLoader(str(template_dir)),
         autoescape=True
     )
 
-def render_template(template_name: str, **kwargs) -> str:
-    """Render a template with the given variables."""
-    env = create_jinja_env()
-    template = env.get_template(template_name)
-    return template.render(**kwargs)
+def get_template(template_dir: Path, template_name: str) -> jinja2.Template:
+    """Get a template from the template directory."""
+    env = create_jinja_env(template_dir)
+    return env.get_template(template_name)
 
 # dataclass of a Tool object, with name, description, list of paths to create and a list of gitignore lines
 # there is also an f string that uses variables from the class, which will be run in the shell upon initializing the tools
@@ -42,13 +40,17 @@ class Tool:
     gitignore: List[str]
     init: str = field(default="")
     inside_folder: bool = field(default=True)
-    template: jinja2.Template = field(init=False)
+    templates: Path
 
 @dataclass
 class Project:
     path: Path
     name: str
     tools: List[Tool]
+    title: str = ""
+    description: str = ""
+    authors: List[str] = field(default_factory=list)
+    stata_version: str = "18"
 
 def init_project(project):
     gitignore = []
@@ -57,12 +59,29 @@ def init_project(project):
 
     for tool in project.tools:
         if tool.inside_folder:
-            subprocess.run(tool.init.format(name=project.name).split(), cwd=project.name, check=True)
+            subprocess.run(tool.init.format(project=project).split(), cwd=project.name, check=True)
         else:
-            subprocess.run(tool.init.format(name=project.name).split(), check=True)
+            subprocess.run(tool.init.format(project=project).split(), check=True)
 
+    # Create .gitignore
     with open(f'{project.name}/.gitignore', 'w') as f:
         f.write('\n'.join(gitignore))
+
+    # Generate README.md and Makefile from templates
+    template_dir = get_template_dir()
+    project_template_dir = template_dir / 'project'
+    
+    # Render README.md template
+    readme_template = get_template(project_template_dir, 'README.md')
+    readme_content = readme_template.render(project=project)
+    with open(f'{project.name}/README.md', 'w') as f:
+        f.write(readme_content)
+    
+    # Copy Makefile
+    makefile_template = get_template(project_template_dir, 'Makefile')
+    makefile_content = makefile_template.render(project=project)
+    with open(f'{project.name}/Makefile', 'w') as f:
+        f.write(makefile_content)
 
 
 console = Console()
@@ -77,35 +96,50 @@ def print_welcome():
     console.print(welcome)
     console.print()
 
-# list of Tool objects
-git = Tool([], 'git init', inside_folder=True)
-bead = Tool(['input/', 'temp/'], 'bead new {name}', inside_folder=False)
-poetry = Tool(['poetry.lock'], 'poetry init', inside_folder=True)
-julia = Tool(['Manifest.toml'], 'julia --project=. -e "using Pkg; Pkg.instantiate()"', inside_folder=True)
-
-
+git = Tool([], 'git init', inside_folder=True, templates=template_dir/'git')
+bead = Tool(['input/', 'temp/'], 'bead new {project.name}', inside_folder=False, templates=template_dir/'bead')
+poetry = Tool(['poetry.lock'], 'poetry init', inside_folder=True, templates=template_dir/'poetry')
+julia = Tool(['Manifest.toml'], 'julia --project=. -e "using Pkg; Pkg.instantiate()"', inside_folder=True, templates=template_dir/'julia')
 @click.command()
 @click.option('--path', '-p', default='.',
               help='Path where project will be created',
               type=click.Path())
 def main(path: str):
-    print(
-        get_template_dir()
-    )
+    template_dir = get_template_dir()
+    # list of Tool objects
+
     """Create a new project directory and initialize git."""
     try:
         print_welcome()
 
-        # Get project name
+        # Get project details
         name = Prompt.ask(
             "[bold cyan]Project name[/bold cyan]",
             default="my-project"
         )
+        
+        title = Prompt.ask(
+            "[bold cyan]Project title[/bold cyan]",
+            default=name
+        )
+        
+        description = Prompt.ask(
+            "[bold cyan]Project description[/bold cyan]",
+            default=""
+        )
+        
+        authors = []
+        console.print("\n[bold cyan]Authors (press Enter on empty line to finish):[/bold cyan]")
+        while True:
+            author = Prompt.ask("Author name", default="")
+            if not author:
+                break
+            authors.append(author)
 
-        # Create project
+        # Create project using bead (which creates the directory structure)
         # Convert path to Path object
         path = Path(path)
-        new_project = Project(path, name, [bead, git])
+        new_project = Project(path, name, [bead, git], title, description, authors)
         init_project(new_project)
 
         # Success message
