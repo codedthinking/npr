@@ -1,21 +1,25 @@
-[tool.poetry]
+[project]
 name = "npr"
 version = "0.1.0"
-description = ""
-authors = ["Miklós Koren <miklos.koren@gmail.com>"]
+description = "New Project Initializer - CLI tool for creating project directories with various tools"
+authors = [{name = "Miklós Koren", email = "miklos.koren@gmail.com"}]
 readme = "README.md"
-packages = [{include = "npr", from = "src"}]
-include = ["templates/**/*"]
+requires-python = ">=3.8"
+dependencies = [
+    "click>=8.1.7",
+    "rich>=13.7.0",
+    "jinja2>=3.1.4",
+]
 
-[tool.poetry.dependencies]
-python = "^3.8"
-click = "^8.1.7"
-rich = "^13.7.0"
-jinja2 = "^3.1.4"
-
-[tool.poetry.scripts]
+[project.scripts]
 npr = "npr.cli:main"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/npr"]
+
+[tool.hatch.build.targets.wheel.sources]
+"templates" = "npr/templates"

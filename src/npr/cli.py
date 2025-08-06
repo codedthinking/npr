@@ -38,9 +38,9 @@ def get_template(template_dir: Path, template_name: str) -> jinja2.Template:
 @dataclass
 class Tool:
     gitignore: List[str]
+    templates: Path
     init: str = field(default="")
     inside_folder: bool = field(default=True)
-    templates: Path
 
 @dataclass
 class Project:
@@ -96,10 +96,13 @@ def print_welcome():
     console.print(welcome)
     console.print()
 
-git = Tool([], 'git init', inside_folder=True, templates=template_dir/'git')
-bead = Tool(['input/', 'temp/'], 'bead new {project.name}', inside_folder=False, templates=template_dir/'bead')
-poetry = Tool(['poetry.lock'], 'poetry init', inside_folder=True, templates=template_dir/'poetry')
-julia = Tool(['Manifest.toml'], 'julia --project=. -e "using Pkg; Pkg.instantiate()"', inside_folder=True, templates=template_dir/'julia')
+def get_tools():
+    template_dir = get_template_dir()
+    git = Tool([], template_dir/'git', 'git init', inside_folder=True)
+    bead = Tool(['input/', 'temp/'], template_dir/'bead', 'bead new {project.name}', inside_folder=False)
+    poetry = Tool(['poetry.lock'], template_dir/'poetry', 'poetry init', inside_folder=True)
+    julia = Tool(['Manifest.toml'], template_dir/'julia', 'julia --project=. -e "using Pkg; Pkg.instantiate()"', inside_folder=True)
+    return git, bead, poetry, julia
 @click.command()
 @click.option('--path', '-p', default='.',
               help='Path where project will be created',
@@ -139,6 +142,7 @@ def main(path: str):
         # Create project using bead (which creates the directory structure)
         # Convert path to Path object
         path = Path(path)
+        git, bead, poetry, julia = get_tools()
         new_project = Project(path, name, [bead, git], title, description, authors)
         init_project(new_project)
 
